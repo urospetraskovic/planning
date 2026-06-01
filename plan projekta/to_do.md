@@ -35,8 +35,8 @@
 | Faza 0: 5 repo-a + branch protection + commitlint | shop #1, shop-operator #1, shophub #1, helm-charts #1, kube-state #1 | 100% |
 | Faza 1: k3d klaster + CNPG + MongoDB operator (umesto Redis) | kube-state #3 | 95% |
 | Faza 2: Shop operator (sva 3 CRD-a sa reconciler-ima) | shop-operator #2-6 + #7 (ServiceMonitor) | **100%** |
-| Faza 3: Shop backend (Go/Gin CRUD items/orders, /metrics, /probe/*) + frontend (Vite/React/TS) skela | shop #2-4 | 60% |
-| Faza 4: ShopHub backend (REST CRUD + **JWT auth + per-user multi-tenancy**) + **Helm chart deploy-ovan u cluster** | shophub #2,#5,#6 | 90% |
+| Faza 3: Shop backend (Go/Gin CRUD items/orders, /metrics, /probe/*) + **frontend** (storefront + Web3 USDT checkout + payment animacija) | shop #2-4, payment-flow | **100%** |
+| Faza 4: ShopHub backend (REST CRUD + **JWT auth + per-user multi-tenancy**) + **Helm chart deploy-ovan** + **Railway-style frontend** (landing/auth/dashboard, dokazano e2e) | shophub #2,#5,#6, frontend | **100%** |
 | Faza 6: Observability — **KOMPLETNO** (metrics + per-Shop Grafana dashboard + Loki logs + Tempo traces + Alertmanager→Discord alarmi, spec 4.1) | kube-state #4+, shop-operator #7+, helm-charts #6+ | **100%** |
 | Faza 7.1: Shop operator Helm chart (eliminacioni zahtev) | helm-charts #2 | 100% |
 | Faza 7.2: ShopHub Helm chart (backend + RBAC + CNPG + JWT + ServiceMonitor, spec 3.3) | helm-charts (shophub) | **100%** |
@@ -52,6 +52,7 @@ Ukupno: **~88%** projekta.
 - **D8** ✅ Observability dovršen: Loki (logging) + Tempo (OTLP tracing, OTel u backend-u, OTEL env injektuje operator) + unique visitors (Loki distinct). Trace-ovi dokazani u Grafani (demo-shop span-ovi).
 - **D13** ✅ ShopHub JWT auth + per-user tenant namespace multi-tenancy (Postgres users, bcrypt, JWT nosi namespace, middleware scope-uje per-tenant).
 - **D14** ✅ ShopHub Helm chart deploy-ovan u cluster (backend + RBAC + CNPG users DB + JWT secret + ServiceMonitor). Register→login→shop u svom tenant ns dokazano in-cluster.
+- **D1** ✅ Status Conditions (Available/Progressing/Degraded + Reason taksonomija) u Shop reconciler-u. Dokazano u clusteru.
 - **D10** ✅ Per-Shop alerting → Discord. PrometheusRule (shop+cluster alarmi) + operator-kreiran AlertmanagerConfig (apiURL secret-ref, OnNamespace tenant izolacija) → Discord webhook. Dokazano end-to-end (ShopHighErrorRate firing → poruka u Discord kanalu).
 - **D11** ✅ Shop backend (Go/Gin, items+orders CRUD, Prometheus `/metrics`, probes) + frontend skela + operator wiring (DATABASE_URL env, probes)
 - **CI/CD Faza A+B** ✅ kompletni validation + publish workflow-i kroz sva 3 app repo-a + helm-charts OCI
@@ -71,21 +72,21 @@ Ukupno: **~88%** projekta.
 
 | # | Stavka | Težina | Gde u to_do.md |
 |---|---|---|---|
-| **D1** | **Conditions u Status-u** sa `Available/Progressing/Degraded` + `Reason` taksonomija (`Stalled`, `Failed`, `Init`, `Creating`, `Scaling`) | ~1h | Faza 2.1, 2.4 — Status polje `Conditions []metav1.Condition` već postoji ali ne koristimo ga u reconciler-u |
-| **D2** | **`+kubebuilder:subresource:scale`** za `kubectl scale shop` + HPA integracija | ~30 min | Faza 2.1 — dodati `selector` polje u Status, marker `subresource:scale:specpath=.spec.replicas,statuspath=.status.readyReplicas,selectorpath=.status.selector` |
-| **D3** | **Watches sa custom predicate-om** za CNPG Secret update (ne samo Owns()) | ~45 min | Faza 2.7 — već u planu, treba implementirati |
-| **D4** | **FieldIndexer** za O(1) pretragu kad reconciler radi `r.List()` po polju | ~30 min | Faza 2.7 — bonus stavka, koristi `mgr.GetFieldIndexer().IndexField(...)` u main.go |
+| ~~**D1**~~ ✅ | ~~**Conditions u Status-u**~~ — GOTOVO: Available/Progressing/Degraded sa Reason-ima (DatabaseFailed/DatabaseProvisioning/Deploying/Ready), `meta.SetStatusCondition` (LastTransitionTime na pravim prelazima). Dokazano: `kubectl get shop` → Available=True (Ready). | ~1h | — |
+| ~~**D2**~~ ✅ | ~~**`+kubebuilder:subresource:scale`**~~ — GOTOVO: opciono `spec.replicas` override (availability ostaje default), `status.selector`, scale marker. `kubectl scale shop demo-shop --replicas=4` skalirao deployment na 4/4 i ostao (dokazano u klasteru). HPA-ready preko scale subresource-a. | ~30 min | — |
+| ~~**D3**~~ ✅ | ~~**Watches sa predicate-om** za CNPG Secret~~ — GOTOVO: Secret watch sa `cnpg.io/cluster` predikatom → reconcile Shop čim CNPG objavi `<shop>-app` secret (bez buđenja na nevezane secret-e). | ~45 min | — |
+| ~~**D4**~~ ✅ | ~~**FieldIndexer**~~ — GOTOVO: index Shop-ova po `spec.discordWebhookSecretRef.name`; drugi Secret watch nalazi referencirajuće Shop-ove u O(1). | ~30 min | — |
 | ~~**D5**~~ ✅ | ~~**`postInitApplicationSQL` sa `OWNER TO`**~~ — GOTOVO (shop-operator) | ~15 min | — |
 | ~~**D6**~~ ✅ | ~~**Hadolint** workflow~~ — GOTOVO (shop-operator + shop) | ~10 min | — |
-| **D7** | **Pravi unit testovi** (envtest sa namespace per-test) | ~1.5h | Faza 2.10 — placeholder testovi sada, treba da pišemo prave |
+| ~~**D7**~~ ✅ | ~~**Pravi testovi**~~ — GOTOVO: ShopHub auth (Testcontainers Postgres + fake kube, 6 testova), shop-operator reconcile (fake client + WithStatusSubresource, 5 testova), shop backend handleri (Testcontainers Postgres, 3 testa). Svi prolaze u CI. | ~1.5h | — |
 | ~~**D8**~~ ✅ | ~~**Loki + Promtail** za logove + **Tempo** za tracing~~ — GOTOVO. Loki (logging) + Tempo (OTLP tracing, OpenTelemetry u backend-u) + unique visitors (4.1.d, Loki distinct query). Observability 100% (metrics+logs+traces+alerti). | ~2h | — |
 | ~~**D9**~~ ✅ | ~~**Per-Shop Grafana dashboard**~~ — GOTOVO, 100% po spec 4.1 (osim unique visitors → D8) | ~1.5h | — |
 | ~~**D10**~~ ✅ | ~~**PrometheusRule alarmi + Alertmanager → Discord**~~ — GOTOVO, per-Shop preko operator-kreiranog AlertmanagerConfig (apiURL secret-ref, OnNamespace izolacija) | ~2h | — |
 | ~~**D11**~~ ✅ | ~~**Shop backend** (Go/Gin) sa CRUD-om i `/metrics`~~ — GOTOVO + frontend skela + operator wiring | ~2h | — |
-| **D12** | **Web3 plaćanje** (Sepolia + USDT + MetaMask) | ~2-3h | Faza 5 — još nismo počeli |
+| ~~**D12**~~ ✅ | ~~**Web3 plaćanje** (Sepolia + USDT + MetaMask)~~ — GOTOVO i dokazano protiv prave Sepolia mreže. Self-deployed ERC-20 "USDT" (Remix, 6 decimala, open mint), backend verifikuje Transfer event preko go-ethereum (poller pending→confirmed, idempotentan po replikama), operator injectuje WALLET_ADDRESS, frontend MetaMask connect + transfer (ethers v6) + polling. E2e: MetaMask poslao 5 USDT → Etherscan Success → order confirmed → stock smanjen. | ~2-3h | — |
 | ~~**D13**~~ ✅ | ~~**ShopHub auth** (JWT)~~ — GOTOVO + **puni multi-tenancy**: register/login (bcrypt+JWT, Postgres users), svaki korisnik dobija svoj `tenant-<id>` namespace, JWT nosi namespace, middleware scope-uje /api/shops per-tenant. Dokazano lokalno (register→shop u svom ns→401 bez tokena). | ~2h | Deployment ide sa D14 (CNPG + JWT_SECRET + RBAC) |
 | ~~**D14**~~ ✅ | ~~**ShopHub Helm chart**~~ — GOTOVO + deploy-ovan u cluster. Backend + ClusterRole (namespaces + cluster-wide shops) + CNPG users DB + JWT secret (lookup-preserve) + ServiceMonitor (spec 3.3). Dokazano: register→login→shop u svom tenant ns, RBAC radi. | ~1.5h | — |
-| **D15** | **Shop Helm chart** (opcioni fallback za ručnu instalaciju) | ~1h | Faza 7.3 — opcioni |
+| ~~**D15**~~ ✅ | ~~**Shop Helm chart**~~ — GOTOVO: tanak chart koji renderuje Shop CR (+ opcioni Discord `webhook-url` secret) iz values-a; manual-install shortcut za operator-managed Shop. `helm lint` + `helm template` (default i custom) verifikovani. | ~1h | — |
 
 ### Pomocni dokumenti
 
@@ -136,7 +137,7 @@ Ide u **Settings → Branches → Add rule** za `main`:
 
 - [ ] Require pull request before merging
 - [ ] Require approvals: **1**
-- [ ] Require status checks to pass before merging (linkujete pipeline-ove kasnije)
+- [x] Require status checks to pass before merging — required check imena moraju da odgovaraju **job-name**-u (ne workflow-name-u) i da postoje u tom repo-u. Po repo-u: shop/shophub/shop-operator = Docker Build/Lint/Tests/commitlint; helm-charts = Helm Lint/commitlint; kube-state = commitlint.
 - [ ] **Require linear history** ✅ (zahtev 5.1)
 - [ ] Do not allow bypassing the above settings
 
@@ -1000,7 +1001,14 @@ rules:
 
 ClusterRoleBinding na ServiceAccount.
 
-### 4.4. Frontend ShopHub-a
+### 4.4. Frontend ShopHub-a ✅ GOTOVO
+
+GOTOVO (Railway-style klon, vidi repo-root `frontend_guide.md`): Vite+React+TS+
+Tailwind+framer-motion. Landing (hero + animirani mockup-ovi, scroll reveals,
+žive data-transfer čestice), JWT auth (login/register), dashboard (lista/create/
+delete Shop-ova preko `/api/shops`). Dokazano e2e: register→login→create shop→
+kartica (Playwright demo protiv pravog klastera).
+
 
 - `Login` / `Register` (klasično email + password ili Web3 wallet — opcionalan zahtev).
 - `Dashboard` — lista shop-ova, "Create new shop" forma:
@@ -1055,11 +1063,11 @@ ClusterRoleBinding na ServiceAccount.
 - Sepolia USDT testnet adresa — proverite na ažurnom resursu, varira.
 
 ### Checkpoint 5 ✅
-- [ ] Demo wallet ima Sepolia ETH (za gas) i Sepolia USDT.
-- [ ] Frontend može da inicira `transfer` preko MetaMask.
-- [ ] Backend uspešno verifikuje testnu transakciju.
-- [ ] Order prelazi iz `pending` → `confirmed` automatski.
-- [ ] Stock se smanjuje.
+- [x] Demo wallet ima Sepolia ETH (za gas) i Sepolia USDT (self-deployed ERC-20 `0x74b0ef...`).
+- [x] Frontend može da inicira `transfer` preko MetaMask (ethers v6, Buy with USDT).
+- [x] Backend uspešno verifikuje testnu transakciju (go-ethereum, Transfer event match).
+- [x] Order prelazi iz `pending` → `confirmed` automatski (poller, idempotentan po replikama).
+- [x] Stock se smanjuje.
 
 ---
 
@@ -1364,9 +1372,9 @@ func TestOrderCreation(t *testing.T) {
 Settings → Branches → main rule → Require status checks → odaberi `build-test` i `build-image` kao required. Bez prolaska, PR ne može merge-ovati (zahtev 5.1).
 
 ### Checkpoint 8 ✅
-- [ ] CI prolazi na svaki PR (build + lint + test + hadolint).
-- [ ] Push na main automatski build-uje image i push-uje na DockerHub sa SemVer tag-om.
-- [ ] Branch protection blokira merge ako CI ne prolazi.
+- [x] CI prolazi na svaki PR (build + lint + test + hadolint).
+- [x] Push na main automatski build-uje image i push-uje na DockerHub sa SemVer tag-om.
+- [x] Branch protection blokira merge ako CI ne prolazi (required checks po repo-u, name-matched).
 
 ---
 
