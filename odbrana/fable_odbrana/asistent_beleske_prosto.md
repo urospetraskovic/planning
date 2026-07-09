@@ -24,6 +24,7 @@
 - [4. Njegove rečenice — svaka objašnjena](#4-njegove-recenice)
 - [5. Tabela: on je rekao → mi smo uradili](#5-tabela)
 - [6. Tri najjača aduta + kako da ne preteram](#6-aduti)
+- [7. Checklista: šta je EKSPLICITNO rekao da će se tražiti na odbrani](#7-checklista)
 
 ---
 
@@ -600,3 +601,33 @@ I tri pravila da ne preteram:
 - Maksimum jedna referenca po temi razgovora — dve u istom odgovoru zvuče kao snimak.
 - Ako mi neka poenta odavde nije 100% jasna, ne pominjem je — svaka povlači potpitanje, a
   potpitanje na sopstvenu referencu koje ne znaš da odbraniš je gore nego da je nisi ni rekao.
+
+---
+
+## 7. Checklista
+
+Destilat SAMO onoga što je eksplicitno rekao da će se tražiti/očekivati na odbrani — sve ostalo
+u ovom fajlu je municija za pitanja, a ovo je spisak obaveza.
+
+**DEMONSTRIRA SE (mora da radi uživo):**
+
+| # | Njegovo očekivanje (rekao na vežbama) | Kako ja to pokazujem |
+|---|---|---|
+| 1 | Helm chart za operator + README kako se instalira/konfiguriše — "kroz to prođemo i vidimo da radi" | OCI chart na DockerHub-u + kube-state/SETUP.md; pokazujem ArgoCD Applications ili `helm pull oci://...` |
+| 2 | Operator radi IZ KLASTERA end-to-end, ne samo `make run` | operator je pod u `shop-operator-system`, instaliran iz objavljenog charta preko ArgoCD |
+| 3 | Redosled: prvo baza pa aplikacija ("kroz više iteracija helma je OK") | naš operator to automatizuje — `kubectl get shop -w`: DatabaseProvisioning → Deploying → Ready |
+| 4 | Skaliranje korektno radi kad se poveća broj replika | edit availability standard→high u UI (2→3 poda) ili `kubectl scale shop <ime> --replicas=4` |
+| 5 | Alarmi preko Discorda (PrometheusRule + kanali) | 404 flood → poruka u kanal prodavnice; `scale --replicas=0` → ShopDown; cpu-burn → #cluster-alerts (recepti u kube-state/TESTING.md) |
+
+**PITA SE (znanje):**
+
+| # | Očekivanje | Moja priprema |
+|---|---|---|
+| 6 | Conditions/statusi čitljivi "da se ne bismo patili na odbrani" | umem da pročitam `kubectl describe shop` naglas: koji semafor, koji Reason, šta znači |
+| 7 | Informer dijagram — "usred noći" | crtam ga sam čim tema priđe operatoru (2.11) |
+| 8 | Idempotentnost f(f(x)), 409, finalizeri, blockOwnerDeletion deadlock | sekcije 2.4, 2.8, 3.8, 3.2 ovog fajla |
+
+**UNAPRED ODOBREN ODGOVOR:** za obrisani bazin secret — "nismo hendlovali, dokumentovano je da
+se ne dira; adekvatno rešenje ne postoji" (njegove reči da je to na odbrani sasvim OK).
+
+**REKAO JE DA NEĆE TRAŽITI:** load testing (litmus i slično), podizanje 100 aplikacija, mainnet.
